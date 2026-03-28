@@ -90,10 +90,9 @@ async function addUser(player: string, interaction: ChatInputCommandInteraction)
 async function removeUser(player: string, interaction: ChatInputCommandInteraction) {
     try {
         const res = await axios.delete(
-            `${nanook_base}/whitelist`,
+            `${nanook_base}/whitelist/${player}`,
             {
                 headers: {Authorization: `Bearer ${nanook_token}`},
-                data: {name: player}
             }
         );
 
@@ -114,9 +113,9 @@ async function removeUser(player: string, interaction: ChatInputCommandInteracti
 
 client.once(Events.ClientReady, readyClient => {
     console.log(`Logged in as ${readyClient.user.tag}`);
-    const guildID = readyClient.guilds.cache.first()?.id;
-    if (!guildID) return;
-    registerCommands(readyClient.application.id, guildID)
+    readyClient.guilds.cache.forEach(guildID => {
+        registerCommands(readyClient.application.id, guildID.id);
+    })
 });
 
 client.on(Events.InteractionCreate, async interaction => {
