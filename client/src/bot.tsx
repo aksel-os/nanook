@@ -1,7 +1,8 @@
 import 'dotenv/config';
 import {
+    ActivityType,
     ChatInputCommandInteraction,
-    Client,
+    Client, EmbedBuilder,
     Events,
     GatewayIntentBits,
     REST,
@@ -45,6 +46,11 @@ const whitelistCommand = new SlashCommandBuilder()
                     .setDescription('Remove player from the whitelist')
                     .setRequired(true)
             )
+    )
+    .addSubcommand(sub =>
+        sub
+            .setName('list')
+            .setDescription('Players registered in whitelist')
     )
 
 const rest = new REST({version: '10'}).setToken(token);
@@ -111,11 +117,46 @@ async function removeUser(player: string, interaction: ChatInputCommandInteracti
     }
 }
 
+async function listWhitelist(interaction: ChatInputCommandInteraction) {
+    try {
+        const res = await axios.get(
+            `${nanook_base}/whitelist`,
+            {headers: {Authorization: `Bearer ${nanook_token}`}},
+        )
+
+        const embed = new EmbedBuilder()
+            .setTitle('Whitelist')
+            .setColor('#19ff99')
+
+        for (const user of res.data) {
+            const date = new Date(user.created).toLocaleDateString();
+
+            embed.addFields({
+                name: user.name,
+                value:
+                    `UUID: \`${user.id}\`\n` +
+                    `Added: ${date}`,
+                inline: false
+            });
+        }
+
+        await interaction.editReply({ embeds: [embed] });
+    } catch (error: any) {
+        await interaction.editReply(`Error communicating with backend`);
+    }
+}
+
 client.once(Events.ClientReady, readyClient => {
     console.log(`Logged in as ${readyClient.user.tag}`);
     readyClient.guilds.cache.forEach(guildID => {
         registerCommands(readyClient.application.id, guildID.id);
     })
+    readyClient
+        .user
+        .setActivity(
+            '/whitelist',
+            {type: ActivityType.Watching}
+        )
 });
 
 client.on(Events.InteractionCreate, async interaction => {
@@ -134,6 +175,10 @@ client.on(Events.InteractionCreate, async interaction => {
 
         case 'remove':
             await removeUser(player, interaction)
+            break;
+
+        case 'list':
+            await listWhitelist(interaction)
             break;
     }
 })
