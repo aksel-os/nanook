@@ -164,18 +164,21 @@ client.on(Events.InteractionCreate, async interaction => {
     if (interaction.commandName !== "whitelist") return;
 
     const sub = interaction.options.getSubcommand();
-    const player = interaction.options.getString('player', true);
 
     await interaction.deferReply({ephemeral: true});
 
     switch (sub) {
-        case 'add':
+        case 'add': {
+            const player = interaction.options.getString('player', true);
             await addUser(player, interaction)
             break;
+        }
 
-        case 'remove':
+        case 'remove': {
+            const player = interaction.options.getString('player', true);
             await removeUser(player, interaction)
             break;
+        }
 
         case 'list':
             await listWhitelist(interaction)
