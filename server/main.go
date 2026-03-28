@@ -96,6 +96,27 @@ func (db *app) postWhitelist(context *gin.Context) {
 	context.IndentedJSON(http.StatusCreated, newWhitelist)
 }
 
+func (db *app) deleteWhitelist(context *gin.Context) {
+	name := context.Param("name")
+
+	res, _ := db.DB.Exec(
+		`DELETE FROM whitelist WHERE name = ?`,
+		name,
+	)
+
+	rows, _ := res.RowsAffected()
+	if rows == 0 {
+		context.JSON(http.StatusNotFound, gin.H{"error": "user not in whitelist"})
+		return
+	}
+
+	if err := db.sendRconWhitelist("whitelist remove " + name); err != nil {
+		log.Printf("rcon whitelist remove failed: %v", err)
+	}
+
+	context.Status(http.StatusNoContent)
+}
+
 func (db *app) sendRconWhitelist(cmd string) error {
 	conn, err := net.DialRCON(db.RconAddr, db.RconPass)
 	if err != nil {
@@ -198,6 +219,7 @@ func main() {
 	router.Use(authMiddleware(os.Getenv("API_TOKEN")))
 	router.GET("/whitelist", s.getWhitelist)
 	router.POST("/whitelist", s.postWhitelist)
+	router.DELETE("/whitelist/:name", s.deleteWhitelist)
 
 	router.Run("localhost:8000")
 }

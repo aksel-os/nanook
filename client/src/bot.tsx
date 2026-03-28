@@ -1,11 +1,12 @@
 import 'dotenv/config';
 import {
+    ChatInputCommandInteraction,
     Client,
-    SlashCommandBuilder,
-    GatewayIntentBits,
     Events,
+    GatewayIntentBits,
     REST,
-    Routes
+    Routes,
+    SlashCommandBuilder
 } from 'discord.js';
 import axios from 'axios';
 
@@ -46,7 +47,7 @@ const whitelistCommand = new SlashCommandBuilder()
             )
     )
 
-const rest = new REST( {version: '10'} ).setToken(token);
+const rest = new REST({version: '10'}).setToken(token);
 
 async function registerCommands(clientID: string, guildID: string) {
     try {
@@ -54,12 +55,60 @@ async function registerCommands(clientID: string, guildID: string) {
 
         await rest.put(
             Routes.applicationGuildCommands(clientID, guildID),
-            { body: [whitelistCommand.toJSON()] }
+            {body: [whitelistCommand.toJSON()]}
         );
 
         console.log('Successfully reloaded application (/) commands.');
     } catch (error) {
         console.error(error);
+    }
+}
+
+async function addUser(player: string, interaction: ChatInputCommandInteraction) {
+    try {
+        const res = await axios.post(
+            `${nanook_base}/whitelist`,
+            {name: player},
+            {headers: {Authorization: `Bearer ${nanook_token}`}},
+        )
+
+        if (res.status === 201) {
+            await interaction.editReply(`Successfully added \`${player}\` on the whitelist`)
+        } else {
+            await interaction.editReply(`Failed to add \`${player}\` to the whitelist`)
+        }
+    } catch (error: any) {
+        console.error(error);
+        if (error.response.status === 409) {
+            await interaction.editReply(`User is already whitelisted`);
+        } else {
+            await interaction.editReply(`Error communicating with backend`);
+        }
+    }
+}
+
+async function removeUser(player: string, interaction: ChatInputCommandInteraction) {
+    try {
+        const res = await axios.delete(
+            `${nanook_base}/whitelist`,
+            {
+                headers: {Authorization: `Bearer ${nanook_token}`},
+                data: {name: player}
+            }
+        );
+
+        if (res.status === 204) {
+            await interaction.editReply(`Successfully removed \`${player}\` from the whitelist`);
+        } else {
+            await interaction.editReply(`Failed to remove \`${player}\` from the whitelist`);
+        }
+    } catch (error: any) {
+        console.error(error);
+        if (error.response?.status === 404) {
+            await interaction.editReply(`User not found in whitelist`);
+        } else {
+            await interaction.editReply(`Error communicating with backend`);
+        }
     }
 }
 
@@ -79,25 +128,14 @@ client.on(Events.InteractionCreate, async interaction => {
 
     await interaction.deferReply({ephemeral: true});
 
-    try {
-        const res = await axios.post(
-            `${nanook_base}/whitelist`,
-            { name: player },
-            { headers: { Authorization: `Bearer ${nanook_token}` } },
-        )
+    switch (sub) {
+        case 'add':
+            await addUser(player, interaction)
+            break;
 
-        if (res.status === 201) {
-            await interaction.editReply(`Successfully ${sub} to \`${player}\` on the whitelist`)
-        } else {
-            await interaction.editReply(`Failed to ${sub} \`${player}\` to the whitelist`)
-        }
-    } catch (error: any) {
-        console.error(error);
-        if (error.response.status === 409) {
-            await interaction.editReply(`User is already whitelisted`);
-        } else {
-            await interaction.editReply(`Error communicating with backend`);
-        }
+        case 'remove':
+            await removeUser(player, interaction)
+            break;
     }
 })
 
